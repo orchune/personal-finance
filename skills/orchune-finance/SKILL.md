@@ -4,7 +4,7 @@ description: Record and query the user's personal finances in Orchune via its MC
 license: Proprietary
 metadata:
   author: orchune
-  version: "1.0"
+  version: "1.1"
 compatibility: Requires an MCP client with Streamable HTTP support and network access to the Orchune endpoint.
 ---
 
