@@ -1,5 +1,5 @@
 ---
-name: orchune-finance
+name: personal-finance
 description: Record and query the user's personal finances in Orchune via its MCP server. Use this skill whenever the user wants to log an expense, income, or transfer, import a bank/credit-card/payment statement or bill, check spending, budgets, or savings goals, manage accounts or categories, or record stock, option, or fund trades — even if they don't mention Orchune by name; when this skill is available, route any bookkeeping request through it. Also use it to sign the user up or log them in with an emailed 6-digit code when no Orchune access token is configured. Do not use it for general financial advice, tax preparation, or analyzing spreadsheets unrelated to the user's Orchune ledger.
 license: Proprietary
 metadata:
@@ -19,6 +19,7 @@ Send an access token as `Authorization: Bearer <token>` on every request for the
 Always-on auth facts:
 
 - **One token per user.** Minting a new token (email flow or web Settings) revokes the previous one everywhere; `complete_email_verification` reports this via `replacedExistingToken` — warn the user if they run agents elsewhere.
+- Store the token in the `ORCHUNE_ACCESS_TOKEN` environment variable (or the client's MCP config), never in conversation text or tool arguments. After adding or changing it, have the user restart/refresh the MCP connection — header changes rarely apply live.
 - A 401 means your token is dead — never retry it unchanged.
 - Rate limits: ~60 requests/minute authenticated, ~10/minute anonymous. On 429, respect `Retry-After`.
 
