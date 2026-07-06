@@ -1,6 +1,6 @@
 # Orchune Personal Finance Skill
 
-An [Agent Skill](https://agentskills.io) that lets AI agents (Claude Code, Codex, etc.) record and query your personal finances through the [Orchune](https://www.orchune.com) MCP server — log expenses and income, import bank/credit-card statements, track budgets and savings goals, manage accounts and categories, and record stock/option/fund trades.
+An [Agent Skill](https://agentskills.io) that lets AI agents (Claude Code, Codex, OpenClaw, Hermes Agent etc.) record and query your personal finances through the [Orchune](https://www.orchune.com) MCP server — log expenses and income, import bank/credit-card statements, track budgets and savings goals, manage accounts and categories, and record stock/option/fund trades.
 
 ## Install
 
@@ -10,16 +10,10 @@ Claude Code / Codex (via [skills.sh](https://www.skills.sh)):
 npx skills add orchune/personal-finance
 ```
 
-Hermes Agent:
-
-```bash
-hermes skills install orchune/personal-finance/skills/personal-finance
-```
-
 OpenClaw (via [ClawHub](https://docs.openclaw.ai/clawhub)):
 
 ```bash
-clawhub skill install personal-finance
+openclaw skills install @orchune/personal-finance
 ```
 
 ## What it does
