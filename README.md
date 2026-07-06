@@ -13,13 +13,13 @@ npx skills add orchune/personal-finance
 Hermes Agent:
 
 ```bash
-hermes skills install orchune/personal-finance/skills/orchune-finance
+hermes skills install orchune/personal-finance/skills/personal-finance
 ```
 
 OpenClaw (via [ClawHub](https://docs.openclaw.ai/clawhub)):
 
 ```bash
-clawhub skill install orchune-finance
+clawhub skill install personal-finance
 ```
 
 ## What it does
@@ -36,4 +36,4 @@ An MCP client with Streamable HTTP support and network access to `https://www.or
 
 ## License
 
-Proprietary — see [SKILL.md](skills/orchune-finance/SKILL.md) for details.
+Proprietary — see [SKILL.md](skills/personal-finance/SKILL.md) for details.
