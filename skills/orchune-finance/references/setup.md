@@ -15,6 +15,29 @@ Key configuration — apply it however your host environment registers MCP serve
 
 Prefer referencing the token through the `ORCHUNE_ACCESS_TOKEN` environment variable if your client supports variable expansion in config; otherwise place the literal token in the header field of the client's config — never anywhere else. Registering first without the auth header is fine: the server serves the signup/login tools to anonymous connections.
 
+### Verify the registration worked
+
+Before moving on, confirm the server is actually connected: list the tools of the `orchune` server.
+
+- **Without a token**: exactly 2 tools appear (`start_email_verification`, `complete_email_verification`) → registration OK, continue to step 2.
+- **With a token**: the full toolset (~34 tools, e.g. `get_my_profile`, `record_expense`) → registration OK, skip to step 4.
+- **Server missing, connection refused, or zero tools** → the registration did not take effect. Retry once (some clients need a reload after config changes); if it still fails, fall back to manual configuration below.
+
+### If automatic configuration fails — walk the user through manual setup
+
+When you cannot edit the client's MCP configuration yourself (no permission, unknown config location, unsupported client), do not keep retrying. Give the user these instructions in your own words, adapted to their client:
+
+1. Open your MCP client's server settings — usually a JSON config file (look for names like `mcp.json`, `mcp_servers.json`, or an "MCP servers" section in the app's settings UI).
+2. Add a server entry with exactly these values:
+   - name: `orchune`
+   - type/transport: `http` (Streamable HTTP)
+   - url: `https://www.orchune.com/mcp`
+   - header (once you have a token): `Authorization: Bearer <your access token>`
+3. Save, then restart the client or reload its MCP servers.
+4. Tell me when you're done — I'll verify the connection and continue.
+
+After the user confirms, re-run the verification above before proceeding.
+
 ## 2. Authorize
 
 Ask the user which situation applies, then follow one path:
@@ -29,10 +52,11 @@ Works for both signup and login; no password is ever involved.
 
 1. Connect **without** the Authorization header. `tools/list` will show exactly two tools: `start_email_verification` and `complete_email_verification`.
 2. Ask the user for their email address. For a brand-new account also ask (or infer from the conversation) preferred `language` (en|zh), `currency`, and `timezone` — these only apply when the account doesn't exist yet.
-3. Call `start_email_verification`. It always replies with the same generic "code sent" message; that is by design and not a confirmation the email exists.
-4. Ask the user to read the 6-digit code from their inbox (sender: Orchune). The code lasts 10 minutes and dies after 5 wrong attempts.
-5. Call `complete_email_verification(email, code)`. The result contains `accessToken` — **shown exactly once**. Store it immediately (step 3), before doing anything else.
-6. If `replacedExistingToken` is true, tell the user their previous agent token has been revoked — any other agent using it must be updated.
+3. Show the user the Terms of Service (https://www.orchune.com/terms) and Privacy Policy (https://www.orchune.com/privacy) links and ask for their explicit agreement. Only after they agree, proceed with `termsAccepted: true` — the tool rejects anything else, and the verification email restates the consent notice.
+4. Call `start_email_verification`. It always replies with the same generic "code sent" message; that is by design and not a confirmation the email exists.
+5. Ask the user to read the 6-digit code from their inbox (sender: Orchune). The code lasts 10 minutes and dies after 5 wrong attempts.
+6. Call `complete_email_verification(email, code)`. The result contains `accessToken` — **shown exactly once**. Store it immediately (step 3), before doing anything else.
+7. If `replacedExistingToken` is true, tell the user their previous agent token has been revoked — any other agent using it must be updated.
 
 ## 3. Store the token and reload the connection
 
