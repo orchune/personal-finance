@@ -4,8 +4,22 @@ An [Agent Skill](https://agentskills.io) that lets AI agents (Claude Code, Codex
 
 ## Install
 
+Claude Code / Codex (via [skills.sh](https://www.skills.sh)):
+
 ```bash
 npx skills add orchune/personal-finance
+```
+
+Hermes Agent:
+
+```bash
+hermes skills install orchune/personal-finance/skills/orchune-finance
+```
+
+OpenClaw (via [ClawHub](https://docs.openclaw.ai/clawhub)):
+
+```bash
+clawhub skill install orchune-finance
 ```
 
 ## What it does
