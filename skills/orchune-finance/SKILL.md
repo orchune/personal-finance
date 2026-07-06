@@ -14,16 +14,12 @@ Orchune is a personal finance service operated entirely over MCP. Endpoint: `htt
 
 ## Connect and authenticate
 
-1. If you already have an Orchune access token, send it as `Authorization: Bearer <token>` on every request. You get the full toolset (~34 tools).
-2. If you have no token, connect **without** an Authorization header. The server then exposes exactly two tools:
-   - `start_email_verification(email, ...)` — works for both signup and login; a 6-digit code is emailed. Ask the user to read it from their inbox.
-   - `complete_email_verification(email, code)` — returns the access token **once**. Store it immediately, then reconnect with the Bearer header.
-3. A 401 means your token was revoked or replaced — do not retry it; re-run the email flow or ask the user for a fresh token from Settings → Integrations.
+Send an access token as `Authorization: Bearer <token>` on every request for the full toolset. **First-time setup, no token configured, or a 401 with a token you thought was valid → read [references/setup.md](references/setup.md)** — it walks through registering the MCP server, the passwordless email-code signup/login flow, token storage rules, and troubleshooting.
 
-Auth gotchas:
+Always-on auth facts:
 
-- **One token per user.** Completing email verification revokes the user's previous token (`replacedExistingToken: true` in the result). Warn the user if they run agents elsewhere.
-- Codes expire in 10 minutes and die after 5 wrong attempts; request a new one with `start_email_verification` (max 1 email/minute per address).
+- **One token per user.** Minting a new token (email flow or web Settings) revokes the previous one everywhere; `complete_email_verification` reports this via `replacedExistingToken` — warn the user if they run agents elsewhere.
+- A 401 means your token is dead — never retry it unchanged.
 - Rate limits: ~60 requests/minute authenticated, ~10/minute anonymous. On 429, respect `Retry-After`.
 
 ## Money, dates, and name resolution
