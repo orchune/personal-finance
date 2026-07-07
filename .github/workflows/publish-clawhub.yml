@@ -1,0 +1,40 @@
+name: Publish to ClawHub
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/personal-finance/**"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ClawHub CLI
+        run: npm i -g clawhub
+
+      - name: Authenticate
+        run: clawhub login --token "$CLAWHUB_TOKEN"
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+
+      # Version defaults to the next patch of the latest published version.
+      - name: Publish skill
+        run: |
+          clawhub skill publish ./skills/personal-finance \
+            --slug personal-finance \
+            --name "Orchune Personal Finance" \
+            --changelog "$COMMIT_MESSAGE" \
+            --source-repo "${{ github.repository }}" \
+            --source-commit "${{ github.sha }}" \
+            --source-ref "${{ github.ref_name }}" \
+            --source-path skills/personal-finance
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual publish via workflow_dispatch' }}
