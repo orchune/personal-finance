@@ -31,11 +31,22 @@ jobs:
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
 
-      # Version defaults to the next patch of the latest published version.
+      # Version comes from SKILL.md frontmatter (metadata.version), normalized
+      # to semver (2.0 -> 2.0.0). Bump it there for each release; publishing an
+      # already-published version fails, which catches forgotten bumps.
       - name: Publish skill
         run: |
+          VERSION=$(awk -F'"' '/^  version:/ { print $2; exit }' skills/personal-finance/SKILL.md)
+          case "$VERSION" in
+            *.*.*) ;;
+            *.*) VERSION="$VERSION.0" ;;
+            *) echo "::error::Could not parse metadata.version from SKILL.md"; exit 1 ;;
+          esac
+          echo "Publishing version $VERSION"
           clawhub skill publish ./skills/personal-finance \
+            --owner orchune \
             --slug personal-finance \
+            --version "$VERSION" \
             --name "Orchune Personal Finance" \
             --changelog "$COMMIT_MESSAGE" \
             --source-repo "${{ github.repository }}" \
