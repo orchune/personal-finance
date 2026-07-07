@@ -21,7 +21,13 @@ jobs:
         run: npm i -g clawhub
 
       - name: Authenticate
-        run: clawhub login --token "$CLAWHUB_TOKEN"
+        run: |
+          if [ -z "$CLAWHUB_TOKEN" ]; then
+            echo "::error::CLAWHUB_TOKEN secret is not set. Add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          clawhub login --token "$CLAWHUB_TOKEN"
+          clawhub whoami
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
 
