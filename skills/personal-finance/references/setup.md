@@ -20,7 +20,7 @@ Prefer referencing the token through the `ORCHUNE_ACCESS_TOKEN` environment vari
 Before moving on, confirm the server is actually connected: list the tools of the `orchune` server.
 
 - **Without a token**: exactly 2 tools appear (`start_email_verification`, `complete_email_verification`) → registration OK, continue to step 2.
-- **With a token**: the full toolset (~34 tools, e.g. `get_my_profile`, `record_expense`) → registration OK, skip to step 4.
+- **With a token**: the full toolset (~46 tools, e.g. `get_my_profile`, `record_expense`) → registration OK, skip to step 4.
 - **Server missing, connection refused, or zero tools** → the registration did not take effect. Retry once (some clients need a reload after config changes); if it still fails, fall back to manual configuration below.
 
 ### If automatic configuration fails — walk the user through manual setup
@@ -44,7 +44,7 @@ Ask the user which situation applies, then follow one path:
 
 ### Path A — the user already has an access token
 
-The user copies it from **Settings → Integrations** in the Orchune web app (tokens look like `orchune_sk_...`). Go to step 3 to store it.
+The user copies it from **Settings → Integrations** in the Orchune web app (tokens look like `orchune_sk_...`). **Do not ask them to paste it into the chat.** Instead, walk them through storing it themselves (step 3): into the `ORCHUNE_ACCESS_TOKEN` environment variable or directly into the client config's header field. If the user pastes the token into the conversation anyway, store it, then advise them to regenerate it from Settings → Integrations, since anything in conversation text may be logged.
 
 ### Path B — no token, or no account yet (email-code flow)
 
@@ -55,14 +55,14 @@ Works for both signup and login; no password is ever involved.
 3. Show the user the Terms of Service (https://www.orchune.com/terms) and Privacy Policy (https://www.orchune.com/privacy) links and ask for their explicit agreement. Only after they agree, proceed with `termsAccepted: true` — the tool rejects anything else, and the verification email restates the consent notice.
 4. Call `start_email_verification`. It always replies with the same generic "code sent" message; that is by design and not a confirmation the email exists.
 5. Ask the user to read the 6-digit code from their inbox (sender: Orchune). The code lasts 10 minutes and dies after 5 wrong attempts.
-6. Call `complete_email_verification(email, code)`. The result contains `accessToken` — **shown exactly once**. Store it immediately (step 3), before doing anything else.
+6. Call `complete_email_verification(email, code)`. The result contains `accessToken` — **shown exactly once**. Write it straight into the env var / client config (step 3) before doing anything else, and **never repeat it in your output**: don't display it, don't quote it back "for confirmation", don't include it in a summary. If you cannot write the config yourself, show the user where to put it and refer to the token only as "the token ending in <last 4>" — they can re-copy it from the tool result themselves.
 7. If `replacedExistingToken` is true, tell the user their previous agent token has been revoked — any other agent using it must be updated.
 
 ## 3. Store the token and reload the connection
 
 1. Save the token into the `ORCHUNE_ACCESS_TOKEN` environment variable so it persists and stays out of conversation logs — e.g. the user's shell profile, a `.env` file the client loads, or the client's own secrets/env mechanism. If the client can't read env vars in its MCP config, put the literal token in the config's header field instead.
 2. Update the Orchune server entry so it sends `Authorization: Bearer <token>` (via the env var where possible).
-3. **Ask the user to restart or refresh the MCP connection** — most clients only apply header/env changes on reconnect (restart the agent, reload its MCP servers, or toggle the server off and on). The signup/login tools disappearing and the full toolset (~34 tools) appearing confirms the reload took effect.
+3. **Ask the user to restart or refresh the MCP connection** — most clients only apply header/env changes on reconnect (restart the agent, reload its MCP servers, or toggle the server off and on). The signup/login tools disappearing and the full toolset (~46 tools) appearing confirms the reload took effect.
 
 ## 4. Verify
 
@@ -70,7 +70,9 @@ Call `get_my_profile`. Success confirms the token works and gives you the user's
 
 ## Token handling rules
 
-- The token lives in the environment variable / client config only. Do not echo it back into the conversation, logs, or files, and never include it in tool arguments — it belongs in the HTTP header only.
+- The token lives in the environment variable / client config only; the MCP client injects it into the `Authorization` header itself. You never construct that header or pass the token as data.
+- Never echo, print, quote, or summarize the token in conversation output, logs, or files, and never include it in tool arguments. Refer to it only by its last 4 characters (also available as `hint`).
+- Never ask the user to send you the token in chat. A token that has appeared in conversation text is exposed — advise regenerating it in Settings → Integrations (which revokes the exposed one).
 - One token per user: generating a new one (via this flow or the web Settings page) silently revokes the old one everywhere.
 - The token does not expire on a schedule; it dies only when replaced or deleted by the user.
 

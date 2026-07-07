@@ -37,11 +37,15 @@ Partial-name search over existing payees; reuse the returned full name.
 - `query`*, `limit` (1–50, default 10).
 
 ### list_transactions
-Rows plus totals (income, expense, count).
+Rows plus totals (income, expense, count). Supports fuzzy search and amount-range filters for locating specific transactions.
 - `startDate`/`endDate` (YYYY-MM-DD, user timezone, endDate inclusive; default current month), `type` (array of EXPENSE|INCOME|TRANSFER, default expense+income), `account`, `category`, `limit` (1–100, default 50), `offset`.
+- `payee` — case-insensitive substring match on payee names.
+- `keyword` — fuzzy search across notes AND payee names (OR); combine with a date range for speed.
+- `minAmount`/`maxAmount` — major units, compared against the absolute amount ("expenses over 500").
+- A `category`/`payee` filter that matches nothing returns an empty result (not an unfiltered one).
 
 ### list_budgets
-Current-period budget progress per line: limit/actual/remaining (major units), usedPct, status normal|warning|over, plus a total line. No input.
+Current-period budget progress per line: limit/actual/remaining (major units), usedPct, status normal|warning|over, plus a total line. Each line carries `id` (the itemId for set_budget_override) and `categoryId`. No input.
 
 ### list_goals
 Savings goals vs current linked-account balances: target/current/remaining, progressPct, achieved, optional targetDate/daysLeft. No input.
@@ -60,6 +64,10 @@ Savings goals vs current linked-account balances: target/current/remaining, prog
 Name/provider/notes/archive only — type, currency, balances are immutable here.
 - `account`* (may reference an archived account), `name`, `paymentProvider`, `notes` ("" clears), `archived` (bool). At least one change.
 
+### calibrate_account
+Sets the balance to the real-world figure the user reports; the difference is booked as an ADJUSTMENT transaction excluded from statistics. No-op when already matching. Use this instead of a fake expense/income to fix a drifted balance.
+- `account`*, `actualBalance`* (major units, may be negative), `note`.
+
 ## Categories
 
 ### create_category
@@ -77,16 +85,54 @@ Archives the category; existing transactions keep referencing it. Fails on syste
 Moves all transactions, splits, recurring rules, merchant preferences and subcategories from source into target, then archives source.
 - `source`*, `target`* (active, same type, not a subcategory of source), `type`*.
 
+## Budgets
+
+Amounts in budget tools are major units of the budget's currency. Lines: at most one TOTAL (overall monthly cap) plus distinct CATEGORY lines (EXPENSE categories, name or id).
+
+### create_budget
+- `currency`*, `items`* (array of `{kind: TOTAL|CATEGORY, category (CATEGORY only), amount, rollover, alertThresholdPct, notes}`), `name`, `includePending`.
+
+### update_budget
+`items`, when provided, FULLY REPLACES the line set — send the complete list, not just the changed line. For a one-month change use set_budget_override instead.
+- `budgetId`*, `name` (null clears), `status` (ACTIVE|PAUSED|ARCHIVED), `includePending`, `items`.
+
+### set_budget_override
+One-month override of a single line; the recurring template is untouched. Omit both `amount` and `skip` to clear an existing override.
+- `budgetId`*, `itemId`* (line `id` from list_budgets), `periodKey`* (YYYY-MM), `amount`, `skip` (bool), `notes`.
+
+### delete_budget (destructive)
+Permanently removes the plan, its lines and overrides; transactions untouched. Prefer archiving via update_budget.
+- `budgetId`*.
+
+## Goals
+
+Amounts in goal tools are major units of the goal's currency. A goal is linked 1:1 to an account; SAVINGS tracks its balance toward a target, DEBT pays a liability account down to zero.
+
+### create_goal
+- `name`*, `currency`* (must match the account), `target`*, `account`* (each account backs at most one goal; immutable for DEBT), `kind` (SAVINGS default | DEBT), `monthlyPlan`, `targetDate` (YYYY-MM-DD).
+
+### update_goal
+Archive with `status: ARCHIVED` (funds untouched), restore with `status: ACTIVE`.
+- `goalId`*, plus any of `name`, `status`, `target`, `monthlyPlan`, `targetDate` (null clears), `account` (same currency; not for DEBT).
+
+### fund_goal
+Moves real money: a transfer from `sourceAccount` into the goal's account (SAVINGS deposit / DEBT repayment; `interest` books as an expense on top).
+- `goalId`*, `amount`*, `sourceAccount`* (same currency, differs from the goal's account), `interest`, `note`.
+
+### delete_goal (destructive)
+Removes the goal definition only; accounts and transactions untouched. Prefer archiving.
+- `goalId`*.
+
 ## Transactions
 
-Shared optional fields on the record/update tools: `card` (credit-card accounts), `date`, `timezone`, `notes` (≤500), `status` (PENDING|CLEARED|RECONCILED, default CLEARED).
+Shared optional fields on the record/update tools: `card` (credit-card accounts), `date`, `timezone`, `notes` (≤500), `status` (PENDING|CLEARED|RECONCILED, default CLEARED). The three record tools also take `clientRequestId` (≤64 chars) — an idempotency key; see SKILL.md conventions.
 
 ### record_expense / record_income
-- `account`*, `amount`* (major units, positive), `category` (type must match), `payee` (auto-created; search first).
+- `account`*, `amount`* (major units, positive), `category` (type must match), `payee` (auto-created; search first), `clientRequestId`.
 
 ### record_transfer
 Same-currency transfer between two of the user's accounts.
-- `fromAccount`*, `toAccount`*, `amount`*, `fee` (optional, charged from source; requires a fee category to exist).
+- `fromAccount`*, `toAccount`*, `amount`*, `fee` (optional, charged from source; requires a fee category to exist), `clientRequestId`.
 
 ### update_transaction
 Cannot edit transfers (either leg) — web app only.
@@ -95,6 +141,10 @@ Cannot edit transfers (either leg) — web app only.
 ### delete_transaction
 Deleting one leg of a transfer deletes the whole transfer.
 - `transactionId`* (UUID).
+
+### split_transaction
+Replaces one EXPENSE transaction with 2–20 category lines (e.g. a supermarket receipt into groceries + household). Amounts must sum exactly to the original; balance unchanged; the lines inherit date/payee/notes/etc.
+- `transactionId`* (UUID), `splits`* (array of `{category, amount}` in major units).
 
 ## Bill import
 
@@ -107,6 +157,14 @@ Validates agent-parsed statement rows into a pending batch; writes nothing to tr
 ### commit_bill_import
 Imports the READY rows of a previewed batch; DUPLICATE rows skipped unless `includeDuplicates: true` (only after the user confirms).
 - `batchId`*, `includeDuplicates` (default false).
+
+### list_import_batches
+Paged import history (newest first) with per-batch status and counts (total/imported/skipped).
+- `page` (default 1), `pageSize` (1–50, default 10).
+
+### revert_import_batch (destructive)
+Undoes a COMPLETED import: permanently deletes the transactions it created (balances/stats restored) and clears dedup references so the same file can be re-imported. Confirm with the user first.
+- `batchId`*.
 
 ## Investments — stock
 
@@ -163,3 +221,10 @@ Holdings with quantity, avg cost, NAV, market value, P&L, valuationType. No inpu
 - `FUND_POSITION_EXISTS` — use record_fund_trade instead of open_fund_position.
 - `INVALID_DATE`, `INVALID_TIMEZONE` — fix the format and retry.
 - `INVALID_CODE`, `RATE_LIMITED` — auth flow; request a fresh code / back off.
+- `BUDGET_NOT_FOUND`, `BUDGET_ITEM_NOT_FOUND` — use ids from list_budgets (line `id` = itemId).
+- `GOAL_NOT_FOUND`, `GOAL_ACCOUNT_TAKEN`, `GOAL_DEBT_ACCOUNT_IMMUTABLE`, `ACCOUNT_CURRENCY_MISMATCH` — goal/account pairing constraints.
+- `TRANSACTION_NOT_SPLITTABLE`, `SPLIT_FX_NOT_SUPPORTED`, `SPLIT_AMOUNT_MISMATCH` — split constraints (plain EXPENSE only; amounts must sum exactly).
+- `IMPORT_BATCH_NOT_FOUND`, `IMPORT_BATCH_NOT_REVERTIBLE` — only COMPLETED batches revert.
+- `IDEMPOTENCY_KEY_CONFLICT` — the clientRequestId was already used by a different tool; generate a fresh id per logical write.
+
+Error results also carry `structuredContent.errorCode` with the machine-readable code, so you don't need to parse the message text.
